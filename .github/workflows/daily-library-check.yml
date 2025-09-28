@@ -1,0 +1,65 @@
+name: Daily Library Check
+
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+
+      - name: Install dependencies
+        run: |
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install selenium webdriver-manager beautifulsoup4
+
+      - name: Create config.ini from secrets
+        run: |
+          echo "[user_1]" > config.ini
+          echo "username=${{ secrets.LIBRARY_USER_1_USERNAME }}" >> config.ini
+          echo "password=${{ secrets.LIBRARY_USER_1_PASSWORD }}" >> config.ini
+          echo "" >> config.ini
+          echo "[user_2]" >> config.ini
+          echo "username=${{ secrets.LIBRARY_USER_2_USERNAME }}" >> config.ini
+          echo "password=${{ secrets.LIBRARY_USER_2_PASSWORD }}" >> config.ini
+          echo "" >> config.ini
+          echo "[user_3]" >> config.ini
+          echo "username=${{ secrets.LIBRARY_USER_3_USERNAME }}" >> config.ini
+          echo "password=${{ secrets.LIBRARY_USER_3_PASSWORD }}" >> config.ini
+          echo "" >> config.ini
+          echo "[user_4]" >> config.ini
+          echo "username=${{ secrets.LIBRARY_USER_4_USERNAME }}" >> config.ini
+          echo "password=${{ secrets.LIBRARY_USER_4_PASSWORD }}" >> config.ini
+
+      - name: Run library_checker.py
+        run: |
+          source .venv/bin/activate
+          python library_checker.py
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Commit and push docs/index.html
+        run: |
+          git add docs/index.html
+          git commit -m 'Update docs/index.html [skip ci]' || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

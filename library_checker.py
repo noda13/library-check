@@ -33,6 +33,25 @@ def load_credentials(config_file):
             credentials.append({"username": username, "password": password})
     return credentials
 
+def parse_book_title(title):
+    """書籍タイトルから著者と出版社を分離する"""
+    # 最後の部分が出版社
+    parts = title.split('　')
+    if len(parts) >= 3:
+        publisher = parts[-1]
+        author_part = parts[-2]
+        title_part = '　'.join(parts[:-2])
+        
+        # 著者部分から著者名を抽出（／著、／作など）
+        if '／' in author_part:
+            author = author_part.split('／')[0]
+        else:
+            author = author_part
+            
+        return title_part, author, publisher
+    else:
+        return title, '', ''
+
 def generate_html(all_books_data):
     """予約状況のHTMLを生成する"""
     html_content = """
@@ -44,35 +63,116 @@ def generate_html(all_books_data):
         <title>図書館予約状況</title>
         <style>
             body { font-family: sans-serif; margin: 2em; }
-            h1, h2 { color: #333; }
-            .user-section { margin-bottom: 2em; }
-            .book { border: 1px solid #ddd; padding: 1em; margin-bottom: 1em; border-radius: 5px; }
-            .book p { margin: 0.5em 0; }
+            h1 { color: #333; }
+            table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
             .highlight { background-color: #fff3cd; }
             .timestamp { color: #777; font-size: 0.9em; }
+            .error { color: red; margin: 1em 0; }
         </style>
     </head>
     <body>
         <h1>図書館予約状況</h1>
     """
 
+    # 全ユーザーの本をまとめる
+    all_books = []
+    errors = []
+    
     for user, data in all_books_data.items():
-        html_content += f'<div class="user-section"><h2>{user}さんの予約状況</h2>'
         if data["error"]:
-            html_content += f'<p class="error">エラー: {data["error"]}</p>'
-        elif not data["books"]:
-            html_content += "<p>現在、予約している資料はありません。</p>"
-        else:
+            errors.append(f"{user}さん: {data['error']}")
+        elif data["books"]:
             for book in data["books"]:
-                highlight_class = "highlight" if book.get('予約状態', '') != '予約中です' else ''
-                html_content += f"""
-                <div class="book {highlight_class}">
-                    <p><strong>{book.get('資料名', 'N/A')}</strong></p>
-                    <p>状態: {book.get('予約状態', 'N/A')} (順位: {book.get('順位', 'N/A')})</p>
-                    <p>期限: {book.get('取置期限', 'N/A')} | 受取館: {book.get('受取館', 'N/A')}</p>
-                </div>
-                """
-        html_content += "</div>"
+                book_copy = book.copy()
+                book_copy['ユーザー'] = user
+                # タイトルを分離
+                title, author, publisher = parse_book_title(book.get('資料名', ''))
+                book_copy['タイトル'] = title
+                book_copy['著者'] = author
+                book_copy['出版社'] = publisher
+                all_books.append(book_copy)
+
+    # タイトル重複チェック
+    title_count = {}
+    for book in all_books:
+        t = book.get('タイトル', '')
+        if t:
+            title_count[t] = title_count.get(t, 0) + 1
+    duplicate_titles = {t for t, c in title_count.items() if c > 1}
+
+    # エラーがある場合は表示
+    if errors:
+        html_content += "<div class='error'><h2>エラー</h2><ul>"
+        for error in errors:
+            html_content += f"<li>{error}</li>"
+        html_content += "</ul></div>"
+
+    if not all_books:
+        html_content += "<p>現在、予約している資料はありません。</p>"
+    else:
+        # ソート: 「ご用意できました」を先頭に、その後は順位順
+        def sort_key(book):
+            if book.get('予約状態', '') == 'ご用意できました':
+                return (0, 0)  # 最優先
+            else:
+                order = book.get('順位', '')
+                if order and order.isdigit():
+                    return (1, int(order))
+                else:
+                    return (1, 999)  # 順位不明は最後
+        
+        all_books.sort(key=sort_key)
+        
+        # テーブル作成
+        html_content += """
+        <table>
+            <thead>
+                <tr>
+                    <th>ユーザー</th>
+                    <th>タイトル</th>
+                    <th>著者</th>
+                    <th>出版社</th>
+                    <th>状態</th>
+                    <th>順位</th>
+                    <th>期限</th>
+                    <th>受取館</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for book in all_books:
+            # ハイライト条件: 予約状態が「予約中です」以外 または タイトル重複
+            highlight = False
+            if book.get('予約状態', '') != '予約中です':
+                highlight = True
+            if book.get('タイトル', '') in duplicate_titles:
+                highlight = True
+            highlight_class = "highlight" if highlight else ''
+
+            # 期限と受取館の表示制御
+            deadline = book.get('取置期限', '') if book.get('予約状態', '') != '予約中です' else ''
+            pickup_location = book.get('受取館', '') if book.get('予約状態', '') != '予約中です' else ''
+
+            html_content += f"""
+                <tr class="{highlight_class}">
+                    <td>{book.get('ユーザー', '')}</td>
+                    <td>{book.get('タイトル', '')}</td>
+                    <td>{book.get('著者', '')}</td>
+                    <td>{book.get('出版社', '')}</td>
+                    <td>{book.get('予約状態', '')}</td>
+                    <td>{book.get('順位', '')}</td>
+                    <td>{deadline}</td>
+                    <td>{pickup_location}</td>
+                </tr>
+            """
+        
+        html_content += """
+            </tbody>
+        </table>
+        """
 
     html_content += f'<p class="timestamp">最終更新: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>'
     html_content += """
