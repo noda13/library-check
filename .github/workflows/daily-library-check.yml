@@ -2,7 +2,7 @@ name: Daily Library Check
 
 on:
   schedule:
-    - cron: '0 21 * * *'
+    - cron: '0 18 * * 5'
   workflow_dispatch:
 
 jobs:
