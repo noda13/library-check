@@ -8,6 +8,7 @@ on:
 jobs:
   update-html:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -22,19 +23,19 @@ jobs:
 
       - run: |
           echo "[user_1]" > config.ini
-          echo "username=${{ secrets.LIBRARY_USER_1_USERNAME }}" >> config.ini
+          echo "username=${{ vars.LIBRARY_USER_1_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_1_PASSWORD }}" >> config.ini
           echo "" >> config.ini
           echo "[user_2]" >> config.ini
-          echo "username=${{ secrets.LIBRARY_USER_2_USERNAME }}" >> config.ini
+          echo "username=${{ vars.LIBRARY_USER_2_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_2_PASSWORD }}" >> config.ini
           echo "" >> config.ini
           echo "[user_3]" >> config.ini
-          echo "username=${{ secrets.LIBRARY_USER_3_USERNAME }}" >> config.ini
+          echo "username=${{ vars.LIBRARY_USER_3_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_3_PASSWORD }}" >> config.ini
           echo "" >> config.ini
           echo "[user_4]" >> config.ini
-          echo "username=${{ secrets.LIBRARY_USER_4_USERNAME }}" >> config.ini
+          echo "username=${{ vars.LIBRARY_USER_4_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_4_PASSWORD }}" >> config.ini
 
       - run: |
