@@ -6,30 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-script:
+  update-html:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Set up venv
-        run: |
+      - run: |
           python -m venv .venv
           source .venv/bin/activate
-
-      - name: Install dependencies
-        run: |
-          source .venv/bin/activate
-          pip install --upgrade pip
           pip install selenium webdriver-manager beautifulsoup4
 
-      - name: Create config.ini from secrets
-        run: |
+      - run: |
           echo "[user_1]" > config.ini
           echo "username=${{ secrets.LIBRARY_USER_1_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_1_PASSWORD }}" >> config.ini
@@ -46,18 +37,13 @@ jobs:
           echo "username=${{ secrets.LIBRARY_USER_4_USERNAME }}" >> config.ini
           echo "password=${{ secrets.LIBRARY_USER_4_PASSWORD }}" >> config.ini
 
-      - name: Run library_checker.py
-        run: |
+      - run: |
           source .venv/bin/activate
           python library_checker.py
 
-      - name: Set up Git user
-        run: |
+      - run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-      - name: Commit and push docs/index.html
-        run: |
           git add docs/index.html
           git commit -m 'Update docs/index.html [skip ci]' || echo "No changes to commit"
           git push
